@@ -1,0 +1,182 @@
+{% extends "base.html" %}
+
+{% block title %}CyberChat AI - Chat Interface{% endblock %}
+
+{% block content %}
+<div class="chat-container">
+    <div class="row g-0 h-100">
+        <!-- Chat Area (70%) -->
+        <div class="col-lg-8 col-md-7 d-flex flex-column">
+            <div class="chat-header">
+                <div class="d-flex justify-content-between align-items-center">
+                    <h4 class="mb-0">
+                        <i class="fas fa-robot text-primary me-2"></i>
+                        CyberChat AI
+                    </h4>
+                    <div class="chat-controls">
+                        <button class="btn btn-outline-secondary btn-sm me-2" id="clearChatBtn" title="Clear Chat">
+                            <i class="fas fa-trash"></i>
+                        </button>
+                        <button class="btn btn-outline-primary btn-sm d-lg-none" id="sidebarToggle" title="Toggle Sidebar">
+                            <i class="fas fa-bars"></i>
+                        </button>
+                    </div>
+                </div>
+                <div class="message-counter">
+                    <small id="messageCount" class="text-muted">Messages remaining: <span id="messagesRemaining">Loading...</span></small>
+                </div>
+            </div>
+            
+            <div class="chat-messages flex-grow-1" id="chatMessages">
+                <div class="welcome-message text-center">
+                    <div class="cyber-logo mb-3">
+                        <i class="fas fa-robot"></i>
+                    </div>
+                    <h5>Welcome to CyberChat AI</h5>
+                    <p class="text-muted">Start a conversation, upload files, or search the web!</p>
+                </div>
+            </div>
+            
+            <div class="chat-input-area">
+                <div class="typing-indicator" id="typingIndicator" style="display: none;">
+                    <div class="typing-dots">
+                        <span></span>
+                        <span></span>
+                        <span></span>
+                    </div>
+                    <small class="text-muted ms-2">AI is thinking...</small>
+                </div>
+                
+                <div class="input-group">
+                    <button class="btn btn-outline-primary" type="button" id="fileUploadBtn" title="Upload File">
+                        <i class="fas fa-paperclip"></i>
+                    </button>
+                    <input type="file" id="fileInput" class="d-none" accept=".txt,.pdf,.jpg,.jpeg,.png">
+                    
+                    <input type="text" class="form-control" id="messageInput" placeholder="Type your message..." maxlength="1000">
+                    
+                    <button class="btn btn-outline-success" type="button" id="searchBtn" title="Web Search">
+                        <i class="fas fa-search"></i>
+                    </button>
+                    
+                    <button class="btn btn-primary" type="button" id="sendBtn">
+                        <i class="fas fa-paper-plane"></i>
+                    </button>
+                </div>
+                
+                <div class="file-drop-zone" id="fileDropZone" style="display: none;">
+                    <div class="drop-zone-content">
+                        <i class="fas fa-cloud-upload-alt"></i>
+                        <p>Drop your file here or click to browse</p>
+                        <small class="text-muted">Supported: .txt, .pdf, .jpg, .png (max 10MB)</small>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Sidebar (30%) -->
+        <div class="col-lg-4 col-md-5 chat-sidebar" id="chatSidebar">
+            <div class="sidebar-header">
+                <h5><i class="fas fa-info-circle me-2"></i>Information</h5>
+                <button class="btn btn-sm btn-outline-secondary d-lg-none" id="closeSidebar">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            
+            <div class="sidebar-content">
+                <!-- User Info -->
+                <div class="info-card">
+                    <h6><i class="fas fa-user me-2"></i>User Status</h6>
+                    {% if current_user.is_authenticated %}
+                        <div class="user-info">
+                            {% if current_user.profile_image_url %}
+                                <img src="{{ current_user.profile_image_url }}" alt="Profile" class="profile-img">
+                            {% else %}
+                                <div class="profile-placeholder">
+                                    <i class="fas fa-user"></i>
+                                </div>
+                            {% endif %}
+                            <div class="user-details">
+                                <strong>{{ current_user.get_display_name() }}</strong>
+                                <div class="user-role">
+                                    <span class="badge bg-{{ 'success' if current_user.is_creator else 'primary' if current_user.role == 'premium' else 'warning' if current_user.role == 'vip' else 'secondary' }}">
+                                        {{ current_user.role.title() }}
+                                    </span>
+                                </div>
+                            </div>
+                        </div>
+                    {% else %}
+                        <p class="text-muted">Guest User</p>
+                        <a href="{{ url_for('replit_auth.login') }}" class="btn btn-primary btn-sm">Sign In</a>
+                    {% endif %}
+                </div>
+                
+                <!-- Features -->
+                <div class="info-card">
+                    <h6><i class="fas fa-star me-2"></i>Features</h6>
+                    <ul class="feature-list">
+                        <li><i class="fas fa-check text-success"></i> AI Chat</li>
+                        <li><i class="fas fa-check text-success"></i> File Upload</li>
+                        <li><i class="fas fa-check text-success"></i> Web Search</li>
+                        <li><i class="fas fa-check text-success"></i> Image Analysis</li>
+                        <li><i class="fas fa-check text-success"></i> PDF Processing</li>
+                    </ul>
+                </div>
+                
+                <!-- Quick Actions -->
+                <div class="info-card">
+                    <h6><i class="fas fa-bolt me-2"></i>Quick Actions</h6>
+                    <div class="quick-actions">
+                        <button class="btn btn-outline-primary btn-sm w-100 mb-2" onclick="insertSamplePrompt('Explain quantum computing')">
+                            <i class="fas fa-atom me-2"></i>Ask about quantum computing
+                        </button>
+                        <button class="btn btn-outline-success btn-sm w-100 mb-2" onclick="triggerSearch('latest AI news')">
+                            <i class="fas fa-search me-2"></i>Search AI news
+                        </button>
+                        <button class="btn btn-outline-warning btn-sm w-100" onclick="insertSamplePrompt('Write a cyberpunk story')">
+                            <i class="fas fa-pen me-2"></i>Creative writing
+                        </button>
+                    </div>
+                </div>
+                
+                <!-- Tips -->
+                <div class="info-card">
+                    <h6><i class="fas fa-lightbulb me-2"></i>Tips</h6>
+                    <ul class="tips-list">
+                        <li>Upload images for AI-powered analysis</li>
+                        <li>Use the search button for web queries</li>
+                        <li>Drag and drop files to upload</li>
+                        <li>{% if current_user.is_authenticated %}Sign in{% else %}Create an account{% endif %} for higher limits</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script src="{{ url_for('static', filename='js/chat.js') }}"></script>
+<script src="{{ url_for('static', filename='js/file-upload.js') }}"></script>
+
+<script>
+function insertSamplePrompt(prompt) {
+    document.getElementById('messageInput').value = prompt;
+    document.getElementById('messageInput').focus();
+}
+
+function triggerSearch(query) {
+    document.getElementById('messageInput').value = query;
+    document.getElementById('searchBtn').click();
+}
+
+// Sidebar toggle for mobile
+document.getElementById('sidebarToggle')?.addEventListener('click', function() {
+    document.getElementById('chatSidebar').classList.toggle('show');
+});
+
+document.getElementById('closeSidebar')?.addEventListener('click', function() {
+    document.getElementById('chatSidebar').classList.remove('show');
+});
+</script>
+{% endblock %}

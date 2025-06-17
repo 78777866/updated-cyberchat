@@ -1,0 +1,92 @@
+<svg width="40" height="40" viewBox="0 0 40 40" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <!-- Cyberpunk gradient -->
+    <linearGradient id="cyberGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#7DF9FF;stop-opacity:1" />
+      <stop offset="50%" style="stop-color:#39FF14;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#FF073A;stop-opacity:1" />
+    </linearGradient>
+    
+    <!-- Neon glow filter -->
+    <filter id="neonGlow" x="-50%" y="-50%" width="200%" height="200%">
+      <feGaussianBlur stdDeviation="2" result="coloredBlur"/>
+      <feMerge> 
+        <feMergeNode in="coloredBlur"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+    
+    <!-- Circuit pattern -->
+    <pattern id="circuitPattern" x="0" y="0" width="8" height="8" patternUnits="userSpaceOnUse">
+      <rect width="8" height="8" fill="none"/>
+      <path d="M2,2 L6,2 M2,6 L6,6 M2,2 L2,6 M6,2 L6,6" stroke="#7DF9FF" stroke-width="0.5" opacity="0.3"/>
+    </pattern>
+  </defs>
+  
+  <!-- Background circle with circuit pattern -->
+  <circle cx="20" cy="20" r="18" fill="url(#circuitPattern)" stroke="#7DF9FF" stroke-width="1" opacity="0.2"/>
+  
+  <!-- Main robot head outline -->
+  <rect x="8" y="12" width="24" height="16" rx="4" ry="4" fill="none" stroke="url(#cyberGradient)" stroke-width="2" filter="url(#neonGlow)"/>
+  
+  <!-- Robot eyes -->
+  <circle cx="15" cy="18" r="2.5" fill="#7DF9FF" filter="url(#neonGlow)">
+    <animate attributeName="opacity" values="1;0.3;1" dur="3s" repeatCount="indefinite"/>
+  </circle>
+  <circle cx="25" cy="18" r="2.5" fill="#39FF14" filter="url(#neonGlow)">
+    <animate attributeName="opacity" values="1;0.3;1" dur="2.5s" repeatCount="indefinite"/>
+  </circle>
+  
+  <!-- Eye pupils -->
+  <circle cx="15" cy="18" r="1" fill="#000"/>
+  <circle cx="25" cy="18" r="1" fill="#000"/>
+  
+  <!-- Robot mouth/speaker grille -->
+  <rect x="17" y="22" width="6" height="3" rx="1" fill="none" stroke="#FF073A" stroke-width="1" filter="url(#neonGlow)"/>
+  <line x1="18" y1="23" x2="22" y2="23" stroke="#FF073A" stroke-width="0.5"/>
+  <line x1="18" y1="24" x2="22" y2="24" stroke="#FF073A" stroke-width="0.5"/>
+  
+  <!-- Antennae -->
+  <line x1="12" y1="12" x2="10" y2="8" stroke="#7DF9FF" stroke-width="1.5" filter="url(#neonGlow)"/>
+  <line x1="28" y1="12" x2="30" y2="8" stroke="#39FF14" stroke-width="1.5" filter="url(#neonGlow)"/>
+  <circle cx="10" cy="8" r="1.5" fill="#7DF9FF" filter="url(#neonGlow)"/>
+  <circle cx="30" cy="8" r="1.5" fill="#39FF14" filter="url(#neonGlow)"/>
+  
+  <!-- Side panels -->
+  <rect x="5" y="16" width="3" height="8" rx="1" fill="none" stroke="#7DF9FF" stroke-width="1" opacity="0.6"/>
+  <rect x="32" y="16" width="3" height="8" rx="1" fill="none" stroke="#39FF14" stroke-width="1" opacity="0.6"/>
+  
+  <!-- Central processing indicator -->
+  <rect x="18" y="14" width="4" height="2" rx="1" fill="#FF073A" opacity="0.8">
+    <animate attributeName="opacity" values="0.3;1;0.3" dur="1.5s" repeatCount="indefinite"/>
+  </rect>
+  
+  <!-- Data flow lines -->
+  <path d="M8,20 Q4,20 4,16 Q4,12 8,12" fill="none" stroke="#7DF9FF" stroke-width="1" opacity="0.4">
+    <animate attributeName="stroke-dasharray" values="0,20;10,10;20,0" dur="2s" repeatCount="indefinite"/>
+    <animate attributeName="stroke-dashoffset" values="0;-20" dur="2s" repeatCount="indefinite"/>
+  </path>
+  <path d="M32,20 Q36,20 36,16 Q36,12 32,12" fill="none" stroke="#39FF14" stroke-width="1" opacity="0.4">
+    <animate attributeName="stroke-dasharray" values="0,20;10,10;20,0" dur="2.5s" repeatCount="indefinite"/>
+    <animate attributeName="stroke-dashoffset" values="0;-20" dur="2.5s" repeatCount="indefinite"/>
+  </path>
+  
+  <!-- Neural network nodes -->
+  <circle cx="6" cy="10" r="0.8" fill="#7DF9FF" opacity="0.6">
+    <animate attributeName="r" values="0.8;1.2;0.8" dur="2s" repeatCount="indefinite"/>
+  </circle>
+  <circle cx="34" cy="10" r="0.8" fill="#39FF14" opacity="0.6">
+    <animate attributeName="r" values="0.8;1.2;0.8" dur="1.8s" repeatCount="indefinite"/>
+  </circle>
+  <circle cx="6" cy="30" r="0.8" fill="#FF073A" opacity="0.6">
+    <animate attributeName="r" values="0.8;1.2;0.8" dur="2.2s" repeatCount="indefinite"/>
+  </circle>
+  <circle cx="34" cy="30" r="0.8" fill="#7DF9FF" opacity="0.6">
+    <animate attributeName="r" values="0.8;1.2;0.8" dur="1.9s" repeatCount="indefinite"/>
+  </circle>
+  
+  <!-- Power indicator -->
+  <rect x="19" y="30" width="2" height="4" rx="1" fill="#39FF14" filter="url(#neonGlow)">
+    <animate attributeName="height" values="4;2;4" dur="1s" repeatCount="indefinite"/>
+  </rect>
+</svg>

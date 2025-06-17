@@ -1,0 +1,212 @@
+{% extends "base.html" %}
+
+{% block title %}CyberChat AI - Cyberpunk AI Assistant{% endblock %}
+
+{% block content %}
+<div class="hero-section">
+    <div class="container">
+        <div class="row align-items-center min-vh-100">
+            <div class="col-lg-6">
+                <div class="hero-content">
+                    <h1 class="display-3 fw-bold cyber-title mb-4">
+                        Welcome to<br>
+                        <span class="text-primary">CyberChat AI</span>
+                    </h1>
+                    <p class="lead mb-4">
+                        Experience the future of AI conversation with our cyberpunk-themed chat interface. 
+                        Upload files, search the web, and engage with cutting-edge AI technology.
+                    </p>
+                    
+                    <div class="hero-features mb-5">
+                        <div class="row g-3">
+                            <div class="col-md-6">
+                                <div class="feature-card">
+                                    <i class="fas fa-robot text-primary mb-2"></i>
+                                    <h5>AI-Powered Chat</h5>
+                                    <p class="small">Advanced AI conversations with OpenRouter integration</p>
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="feature-card">
+                                    <i class="fas fa-file-upload text-primary mb-2"></i>
+                                    <h5>File Processing</h5>
+                                    <p class="small">Upload and analyze text, images, and PDF documents</p>
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="feature-card">
+                                    <i class="fas fa-search text-primary mb-2"></i>
+                                    <h5>Web Search</h5>
+                                    <p class="small">Real-time web search with DuckDuckGo integration</p>
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="feature-card">
+                                    <i class="fas fa-palette text-primary mb-2"></i>
+                                    <h5>Cyberpunk Theme</h5>
+                                    <p class="small">Immersive neon-lit interface with smooth animations</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="hero-actions">
+                        {% if current_user.is_authenticated %}
+                            <a href="{{ url_for('chat') }}" class="btn btn-primary btn-lg cyber-btn me-3">
+                                <i class="fas fa-comments me-2"></i>Start Chatting
+                            </a>
+                        {% else %}
+                            <a href="{{ url_for('replit_auth.login') }}" class="btn btn-primary btn-lg cyber-btn me-3">
+                                <i class="fas fa-sign-in-alt me-2"></i>Sign In to Start
+                            </a>
+                            <a href="{{ url_for('chat') }}" class="btn btn-outline-primary btn-lg">
+                                <i class="fas fa-eye me-2"></i>Try as Guest
+                            </a>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+            
+            <div class="col-lg-6">
+                <div class="hero-visual">
+                    <div class="cyber-grid">
+                        <div class="grid-item active">
+                            <i class="fas fa-brain"></i>
+                            <span>AI Neural Network</span>
+                        </div>
+                        <div class="grid-item">
+                            <i class="fas fa-database"></i>
+                            <span>Data Processing</span>
+                        </div>
+                        <div class="grid-item active">
+                            <i class="fas fa-network-wired"></i>
+                            <span>Connected Systems</span>
+                        </div>
+                        <div class="grid-item">
+                            <i class="fas fa-shield-alt"></i>
+                            <span>Secure Encryption</span>
+                        </div>
+                        <div class="grid-item active">
+                            <i class="fas fa-rocket"></i>
+                            <span>High Performance</span>
+                        </div>
+                        <div class="grid-item">
+                            <i class="fas fa-globe"></i>
+                            <span>Global Access</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Features Section -->
+<section class="features-section py-5">
+    <div class="container">
+        <div class="row">
+            <div class="col-12 text-center mb-5">
+                <h2 class="display-5 fw-bold">Cyberpunk AI Features</h2>
+                <p class="lead">Discover the power of next-generation AI technology</p>
+            </div>
+        </div>
+        
+        <div class="row g-4">
+            <div class="col-lg-4">
+                <div class="feature-detailed-card">
+                    <div class="feature-icon">
+                        <i class="fas fa-comments"></i>
+                    </div>
+                    <h4>Intelligent Conversations</h4>
+                    <p>Engage in meaningful conversations with our advanced AI powered by OpenRouter's cutting-edge language models.</p>
+                    <ul class="feature-list">
+                        <li>Natural language understanding</li>
+                        <li>Context-aware responses</li>
+                        <li>Multiple AI models available</li>
+                    </ul>
+                </div>
+            </div>
+            
+            <div class="col-lg-4">
+                <div class="feature-detailed-card">
+                    <div class="feature-icon">
+                        <i class="fas fa-image"></i>
+                    </div>
+                    <h4>Advanced File Analysis</h4>
+                    <p>Upload images, documents, and text files for AI-powered analysis and insights using Google AI vision.</p>
+                    <ul class="feature-list">
+                        <li>Image description and analysis</li>
+                        <li>PDF document processing</li>
+                        <li>Text file summarization</li>
+                    </ul>
+                </div>
+            </div>
+            
+            <div class="col-lg-4">
+                <div class="feature-detailed-card">
+                    <div class="feature-icon">
+                        <i class="fas fa-search"></i>
+                    </div>
+                    <h4>Real-Time Web Search</h4>
+                    <p>Access up-to-date information from the web with integrated DuckDuckGo search capabilities.</p>
+                    <ul class="feature-list">
+                        <li>Private web search</li>
+                        <li>Instant answers</li>
+                        <li>Formatted results</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- Stats Section -->
+<section class="stats-section py-5">
+    <div class="container">
+        <div class="row g-4 text-center">
+            <div class="col-lg-3 col-md-6">
+                <div class="stat-card">
+                    <div class="stat-number">∞</div>
+                    <div class="stat-label">AI Models</div>
+                </div>
+            </div>
+            <div class="col-lg-3 col-md-6">
+                <div class="stat-card">
+                    <div class="stat-number">10MB</div>
+                    <div class="stat-label">File Upload Limit</div>
+                </div>
+            </div>
+            <div class="col-lg-3 col-md-6">
+                <div class="stat-card">
+                    <div class="stat-number">24/7</div>
+                    <div class="stat-label">Availability</div>
+                </div>
+            </div>
+            <div class="col-lg-3 col-md-6">
+                <div class="stat-card">
+                    <div class="stat-number">🔒</div>
+                    <div class="stat-label">Secure & Private</div>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+{% endblock %}
+
+{% block scripts %}
+<script>
+// Animate grid items
+document.addEventListener('DOMContentLoaded', function() {
+    const gridItems = document.querySelectorAll('.grid-item');
+    
+    setInterval(() => {
+        // Remove all active classes
+        gridItems.forEach(item => item.classList.remove('active'));
+        
+        // Add active class to random items
+        const randomItems = Array.from(gridItems).sort(() => 0.5 - Math.random()).slice(0, 3);
+        randomItems.forEach(item => item.classList.add('active'));
+    }, 2000);
+});
+</script>
+{% endblock %}
