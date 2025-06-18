@@ -17,6 +17,10 @@ mode = "parallel"
 author = "agent"
 
 [[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "pip install ."
+
+[[workflows.workflow.tasks]]
 task = "workflow.run"
 args = "Start application"
 
