@@ -1,0 +1,113 @@
+{% extends "base.html" %}
+
+{% block title %}Sign In - CyberChat AI{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="row min-vh-100">
+        <div class="col-lg-6 d-flex align-items-center justify-content-center">
+            <div class="auth-form-container">
+                <div class="text-center mb-4">
+                    <h2 class="display-6 fw-bold cyber-title">Welcome Back</h2>
+                    <p class="text-muted">Sign in to your CyberChat AI account</p>
+                </div>
+                
+                <div class="auth-form">
+                    <form id="loginForm">
+                        <div class="mb-3">
+                            <label for="email" class="form-label">Email</label>
+                            <input type="email" class="form-control" id="email" required>
+                        </div>
+                        <div class="mb-3">
+                            <label for="password" class="form-label">Password</label>
+                            <input type="password" class="form-control" id="password" required>
+                        </div>
+                        <button type="submit" class="btn btn-primary w-100 cyber-btn mb-3">
+                            <i class="fas fa-sign-in-alt me-2"></i>Sign In
+                        </button>
+                    </form>
+                    
+                    <div class="text-center">
+                        <p class="text-muted">Don't have an account? 
+                            <a href="{{ url_for('signup') }}" class="text-primary">Sign up</a>
+                        </p>
+                    </div>
+                </div>
+                
+                <div id="authError" class="alert alert-danger d-none"></div>
+                <div id="authLoading" class="text-center d-none">
+                    <i class="fas fa-spinner fa-spin"></i> Signing in...
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-lg-6 d-none d-lg-flex align-items-center justify-content-center bg-primary bg-opacity-10">
+            <div class="text-center">
+                <i class="fas fa-robot display-1 text-primary mb-4"></i>
+                <h3 class="fw-bold">CyberChat AI</h3>
+                <p class="lead">Experience the future of AI conversation</p>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script>
+// Initialize Supabase client
+const supabaseUrl = '{{ config.SUPABASE_URL }}';
+const supabaseKey = '{{ config.SUPABASE_ANON_KEY }}';
+const supabase = window.supabase.createClient(supabaseUrl, supabaseKey);
+
+document.getElementById('loginForm').addEventListener('submit', async function(e) {
+    e.preventDefault();
+    
+    const email = document.getElementById('email').value;
+    const password = document.getElementById('password').value;
+    const errorDiv = document.getElementById('authError');
+    const loadingDiv = document.getElementById('authLoading');
+    
+    // Show loading
+    loadingDiv.classList.remove('d-none');
+    errorDiv.classList.add('d-none');
+    
+    try {
+        const { data, error } = await supabase.auth.signInWithPassword({
+            email: email,
+            password: password
+        });
+        
+        if (error) {
+            throw error;
+        }
+        
+        // Send token to backend
+        const response = await fetch('/auth/callback', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                access_token: data.session.access_token
+            })
+        });
+        
+        const result = await response.json();
+        
+        if (result.success) {
+            window.location.href = result.redirect_url;
+        } else {
+            throw new Error(result.error);
+        }
+        
+    } catch (error) {
+        console.error('Login error:', error);
+        errorDiv.textContent = error.message || 'Login failed';
+        errorDiv.classList.remove('d-none');
+    } finally {
+        loadingDiv.classList.add('d-none');
+    }
+});
+</script>
+{% endblock %}

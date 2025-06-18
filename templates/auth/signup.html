@@ -1,0 +1,150 @@
+{% extends "base.html" %}
+
+{% block title %}Sign Up - CyberChat AI{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="row min-vh-100">
+        <div class="col-lg-6 d-flex align-items-center justify-content-center">
+            <div class="auth-form-container">
+                <div class="text-center mb-4">
+                    <h2 class="display-6 fw-bold cyber-title">Join CyberChat AI</h2>
+                    <p class="text-muted">Create your account to get started</p>
+                </div>
+                
+                <div class="auth-form">
+                    <form id="signupForm">
+                        <div class="row">
+                            <div class="col-md-6 mb-3">
+                                <label for="firstName" class="form-label">First Name</label>
+                                <input type="text" class="form-control" id="firstName" required>
+                            </div>
+                            <div class="col-md-6 mb-3">
+                                <label for="lastName" class="form-label">Last Name</label>
+                                <input type="text" class="form-control" id="lastName" required>
+                            </div>
+                        </div>
+                        <div class="mb-3">
+                            <label for="email" class="form-label">Email</label>
+                            <input type="email" class="form-control" id="email" required>
+                        </div>
+                        <div class="mb-3">
+                            <label for="password" class="form-label">Password</label>
+                            <input type="password" class="form-control" id="password" required minlength="6">
+                            <div class="form-text">Password must be at least 6 characters long</div>
+                        </div>
+                        <div class="mb-3">
+                            <label for="confirmPassword" class="form-label">Confirm Password</label>
+                            <input type="password" class="form-control" id="confirmPassword" required>
+                        </div>
+                        <button type="submit" class="btn btn-primary w-100 cyber-btn mb-3">
+                            <i class="fas fa-user-plus me-2"></i>Create Account
+                        </button>
+                    </form>
+                    
+                    <div class="text-center">
+                        <p class="text-muted">Already have an account? 
+                            <a href="{{ url_for('login') }}" class="text-primary">Sign in</a>
+                        </p>
+                    </div>
+                </div>
+                
+                <div id="authError" class="alert alert-danger d-none"></div>
+                <div id="authLoading" class="text-center d-none">
+                    <i class="fas fa-spinner fa-spin"></i> Creating account...
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-lg-6 d-none d-lg-flex align-items-center justify-content-center bg-primary bg-opacity-10">
+            <div class="text-center">
+                <i class="fas fa-robot display-1 text-primary mb-4"></i>
+                <h3 class="fw-bold">CyberChat AI</h3>
+                <p class="lead">Experience the future of AI conversation</p>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script>
+// Initialize Supabase client
+const supabaseUrl = '{{ config.SUPABASE_URL }}';
+const supabaseKey = '{{ config.SUPABASE_ANON_KEY }}';
+const supabase = window.supabase.createClient(supabaseUrl, supabaseKey);
+
+document.getElementById('signupForm').addEventListener('submit', async function(e) {
+    e.preventDefault();
+    
+    const firstName = document.getElementById('firstName').value;
+    const lastName = document.getElementById('lastName').value;
+    const email = document.getElementById('email').value;
+    const password = document.getElementById('password').value;
+    const confirmPassword = document.getElementById('confirmPassword').value;
+    const errorDiv = document.getElementById('authError');
+    const loadingDiv = document.getElementById('authLoading');
+    
+    // Validate passwords match
+    if (password !== confirmPassword) {
+        errorDiv.textContent = 'Passwords do not match';
+        errorDiv.classList.remove('d-none');
+        return;
+    }
+    
+    // Show loading
+    loadingDiv.classList.remove('d-none');
+    errorDiv.classList.add('d-none');
+    
+    try {
+        const { data, error } = await supabase.auth.signUp({
+            email: email,
+            password: password,
+            options: {
+                data: {
+                    first_name: firstName,
+                    last_name: lastName
+                }
+            }
+        });
+        
+        if (error) {
+            throw error;
+        }
+        
+        if (data.session) {
+            // User is automatically signed in
+            const response = await fetch('/auth/callback', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    access_token: data.session.access_token
+                })
+            });
+            
+            const result = await response.json();
+            
+            if (result.success) {
+                window.location.href = result.redirect_url;
+            } else {
+                throw new Error(result.error);
+            }
+        } else {
+            // Email confirmation required
+            alert('Please check your email for a confirmation link.');
+            window.location.href = '/auth/login';
+        }
+        
+    } catch (error) {
+        console.error('Signup error:', error);
+        errorDiv.textContent = error.message || 'Signup failed';
+        errorDiv.classList.remove('d-none');
+    } finally {
+        loadingDiv.classList.add('d-none');
+    }
+});
+</script>
+{% endblock %}

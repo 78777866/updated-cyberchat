@@ -8,7 +8,7 @@ from werkzeug.utils import secure_filename
 
 from app import app, db, limiter
 from models import User, APIKey, ChatMessage, SystemSettings, UserModelPreference
-from replit_auth import require_login, make_replit_blueprint
+from auth import require_login, require_creator
 from services.ai_service import AIService
 from services.file_service import FileService
 from services.search_service import SearchService
@@ -20,9 +20,6 @@ from middleware.security_middleware import validate_csrf_token, sanitize_input, 
 # Initialize services
 validation_service = ValidationService()
 cache_service = CacheService()
-
-# Register auth blueprint
-app.register_blueprint(make_replit_blueprint(), url_prefix="/auth")
 
 # Make session permanent
 @app.before_request
@@ -69,12 +66,8 @@ def chat():
 
 @app.route('/settings')
 @require_login
+@require_creator
 def settings():
-    if not current_user.is_creator:
-        log_security_event("UNAUTHORIZED_ACCESS", f"User {current_user.id} attempted to access settings")
-        flash('Access denied. Creator privileges required.', 'error')
-        return redirect(url_for('chat'))
-    
     try:
         # Use caching for settings data
         cache_key = f"settings:{current_user.id}"
@@ -349,14 +342,11 @@ def search():
 
 @app.route('/api/save_api_key', methods=['POST'])
 @require_login
+@require_creator
 @limiter.limit("5 per minute")
 @validate_csrf_token()
 @sanitize_input()
 def save_api_key():
-    if not current_user.is_creator:
-        log_security_event("UNAUTHORIZED_API_ACCESS", f"User {current_user.id} attempted to save API key")
-        return jsonify({'error': 'Access denied'}), 403
-    
     try:
         data = request.get_json()
         
@@ -414,13 +404,10 @@ def save_api_key():
 
 @app.route('/api/delete_api_key', methods=['DELETE'])
 @require_login
+@require_creator
 @limiter.limit("10 per minute")
 @validate_csrf_token()
 def delete_api_key():
-    if not current_user.is_creator:
-        log_security_event("UNAUTHORIZED_API_ACCESS", f"User {current_user.id} attempted to delete API key")
-        return jsonify({'error': 'Access denied'}), 403
-    
     try:
         data = request.get_json()
         
@@ -521,14 +508,11 @@ def get_model_preference():
 
 @app.route('/api/manage_user', methods=['POST'])
 @require_login
+@require_creator
 @limiter.limit("10 per minute")
 @validate_csrf_token()
 @sanitize_input()
 def manage_user():
-    if not current_user.is_creator:
-        log_security_event("UNAUTHORIZED_USER_MANAGEMENT", f"User {current_user.id} attempted user management")
-        return jsonify({'error': 'Access denied'}), 403
-    
     try:
         data = request.get_json()
         
