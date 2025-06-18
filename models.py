@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import datetime, date
 from app import db
 from flask_dance.consumer.storage.sqla import OAuthConsumerMixin
 from flask_login import UserMixin
@@ -18,7 +18,7 @@ class User(UserMixin, db.Model):
     is_creator = db.Column(db.Boolean, default=False)
     daily_message_limit = db.Column(db.Integer, default=50)
     messages_used_today = db.Column(db.Integer, default=0)
-    last_message_date = db.Column(db.Date, default=datetime.utcnow().date)
+    last_message_date = db.Column(db.Date, default=lambda: datetime.utcnow().date())
     
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)

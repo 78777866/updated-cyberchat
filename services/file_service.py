@@ -75,6 +75,7 @@ class FileService:
                 'preview_url': f'data:image/{image.format.lower()};base64,{self._to_base64(content)}'
             }
         except Exception as e:
+            logging.error(f"Image processing error: {e}")
             return {'error': f'Invalid image file: {str(e)}'}
     
     def _process_text(self, content: bytes) -> Dict[str, Any]:
@@ -101,6 +102,7 @@ class FileService:
                 'character_count': len(text_content)
             }
         except Exception as e:
+            logging.error(f"Text processing error: {e}")
             return {'error': f'Error processing text file: {str(e)}'}
     
     def _process_pdf(self, content: bytes) -> Dict[str, Any]:
@@ -110,7 +112,11 @@ class FileService:
             
             text_content = ""
             for page in pdf_reader.pages:
-                text_content += page.extract_text() + "\n"
+                try:
+                    text_content += page.extract_text() + "\n"
+                except Exception as e:
+                    logging.warning(f"Error extracting text from PDF page: {e}")
+                    continue
             
             return {
                 'type': 'pdf',
@@ -119,6 +125,7 @@ class FileService:
                 'character_count': len(text_content)
             }
         except Exception as e:
+            logging.error(f"PDF processing error: {e}")
             return {'error': f'Error processing PDF file: {str(e)}'}
     
     def _to_base64(self, content: bytes) -> str:

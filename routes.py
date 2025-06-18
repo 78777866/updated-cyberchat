@@ -34,13 +34,16 @@ def chat():
         if 'session_id' not in session:
             session['session_id'] = str(uuid.uuid4())
         # Check anonymous message limit
-        anonymous_messages = ChatMessage.query.filter_by(
-            session_id=session['session_id'],
-            user_id=None
-        ).count()
-        if anonymous_messages >= 10:  # Anonymous limit
-            flash('You have reached the message limit. Please sign in to continue.', 'warning')
-            return redirect(url_for('index'))
+        try:
+            anonymous_messages = ChatMessage.query.filter_by(
+                session_id=session['session_id'],
+                user_id=None
+            ).count()
+            if anonymous_messages >= 10:  # Anonymous limit
+                flash('You have reached the message limit. Please sign in to continue.', 'warning')
+                return redirect(url_for('index'))
+        except Exception as e:
+            app.logger.error(f"Error checking anonymous message limit: {e}")
     
     return render_template('chat.html')
 
@@ -51,14 +54,22 @@ def settings():
         flash('Access denied. Creator privileges required.', 'error')
         return redirect(url_for('chat'))
     
-    api_keys = APIKey.query.filter_by(user_id=current_user.id).all()
-    users = User.query.all()
-    return render_template('settings.html', api_keys=api_keys, users=users)
+    try:
+        api_keys = APIKey.query.filter_by(user_id=current_user.id).all()
+        users = User.query.all()
+        return render_template('settings.html', api_keys=api_keys, users=users)
+    except Exception as e:
+        app.logger.error(f"Error loading settings: {e}")
+        flash('Error loading settings page.', 'error')
+        return redirect(url_for('chat'))
 
 @app.route('/api/send_message', methods=['POST'])
 def send_message():
     try:
         data = request.get_json()
+        if not data:
+            return jsonify({'error': 'Invalid JSON data'}), 400
+            
         message = data.get('message', '').strip()
         model = data.get('model', 'openai/gpt-3.5-turbo')
         
@@ -75,36 +86,53 @@ def send_message():
             current_user.increment_message_count()
         else:
             # Check anonymous limit
-            anonymous_messages = ChatMessage.query.filter_by(
-                session_id=session_id,
-                user_id=None
-            ).count()
-            if anonymous_messages >= 10:
-                return jsonify({'error': 'Message limit reached. Please sign in to continue.'}), 429
+            try:
+                anonymous_messages = ChatMessage.query.filter_by(
+                    session_id=session_id,
+                    user_id=None
+                ).count()
+                if anonymous_messages >= 10:
+                    return jsonify({'error': 'Message limit reached. Please sign in to continue.'}), 429
+            except Exception as e:
+                app.logger.error(f"Error checking anonymous limit: {e}")
+                return jsonify({'error': 'Database error'}), 500
         
         # Save user message
-        user_message = ChatMessage(
-            user_id=user_id,
-            session_id=session_id,
-            message_type='user',
-            content=message
-        )
-        db.session.add(user_message)
-        db.session.commit()
+        try:
+            user_message = ChatMessage(
+                user_id=user_id,
+                session_id=session_id,
+                message_type='user',
+                content=message
+            )
+            db.session.add(user_message)
+            db.session.commit()
+        except Exception as e:
+            app.logger.error(f"Error saving user message: {e}")
+            db.session.rollback()
+            return jsonify({'error': 'Database error'}), 500
         
         # Get AI response
-        ai_service = AIService()
-        response = ai_service.get_chat_response(message, user_id or session_id, model)
+        try:
+            ai_service = AIService()
+            response = ai_service.get_chat_response(message, user_id or session_id, model)
+        except Exception as e:
+            app.logger.error(f"Error getting AI response: {e}")
+            response = "❌ Error getting AI response. Please try again."
         
         # Save AI response
-        ai_message = ChatMessage(
-            user_id=user_id,
-            session_id=session_id,
-            message_type='assistant',
-            content=response
-        )
-        db.session.add(ai_message)
-        db.session.commit()
+        try:
+            ai_message = ChatMessage(
+                user_id=user_id,
+                session_id=session_id,
+                message_type='assistant',
+                content=response
+            )
+            db.session.add(ai_message)
+            db.session.commit()
+        except Exception as e:
+            app.logger.error(f"Error saving AI message: {e}")
+            db.session.rollback()
         
         return jsonify({
             'response': response,
@@ -112,7 +140,8 @@ def send_message():
         })
         
     except Exception as e:
-        return jsonify({'error': str(e)}), 500
+        app.logger.error(f"Unexpected error in send_message: {e}")
+        return jsonify({'error': 'Internal server error'}), 500
 
 @app.route('/api/upload_file', methods=['POST'])
 def upload_file():
@@ -132,12 +161,16 @@ def upload_file():
             if not current_user.can_send_message():
                 return jsonify({'error': 'Daily message limit reached'}), 429
         else:
-            anonymous_messages = ChatMessage.query.filter_by(
-                session_id=session_id,
-                user_id=None
-            ).count()
-            if anonymous_messages >= 10:
-                return jsonify({'error': 'Message limit reached. Please sign in to continue.'}), 429
+            try:
+                anonymous_messages = ChatMessage.query.filter_by(
+                    session_id=session_id,
+                    user_id=None
+                ).count()
+                if anonymous_messages >= 10:
+                    return jsonify({'error': 'Message limit reached. Please sign in to continue.'}), 429
+            except Exception as e:
+                app.logger.error(f"Error checking anonymous limit: {e}")
+                return jsonify({'error': 'Database error'}), 500
         
         file_service = FileService()
         result = file_service.process_file(file)
@@ -146,28 +179,36 @@ def upload_file():
             return jsonify(result), 400
         
         # Get AI response for file
-        ai_service = AIService()
-        response = ai_service.process_file_content(result, user_id or session_id)
+        try:
+            ai_service = AIService()
+            response = ai_service.process_file_content(result, user_id or session_id)
+        except Exception as e:
+            app.logger.error(f"Error processing file with AI: {e}")
+            response = f"✅ File uploaded: {result['filename']}. Error processing with AI."
         
         # Save file message
-        file_message = ChatMessage(
-            user_id=user_id,
-            session_id=session_id,
-            message_type='user',
-            content=f"Uploaded file: {result['filename']}",
-            file_data=result
-        )
-        db.session.add(file_message)
-        
-        # Save AI response
-        ai_message = ChatMessage(
-            user_id=user_id,
-            session_id=session_id,
-            message_type='assistant',
-            content=response
-        )
-        db.session.add(ai_message)
-        db.session.commit()
+        try:
+            file_message = ChatMessage(
+                user_id=user_id,
+                session_id=session_id,
+                message_type='user',
+                content=f"Uploaded file: {result['filename']}",
+                file_data=result
+            )
+            db.session.add(file_message)
+            
+            # Save AI response
+            ai_message = ChatMessage(
+                user_id=user_id,
+                session_id=session_id,
+                message_type='assistant',
+                content=response
+            )
+            db.session.add(ai_message)
+            db.session.commit()
+        except Exception as e:
+            app.logger.error(f"Error saving file messages: {e}")
+            db.session.rollback()
         
         if current_user.is_authenticated:
             current_user.increment_message_count()
@@ -179,12 +220,16 @@ def upload_file():
         })
         
     except Exception as e:
-        return jsonify({'error': str(e)}), 500
+        app.logger.error(f"Unexpected error in upload_file: {e}")
+        return jsonify({'error': 'Internal server error'}), 500
 
 @app.route('/api/search', methods=['POST'])
 def search():
     try:
         data = request.get_json()
+        if not data:
+            return jsonify({'error': 'Invalid JSON data'}), 400
+            
         query = data.get('query', '').strip()
         
         if not query:
@@ -199,34 +244,46 @@ def search():
                 return jsonify({'error': 'Daily message limit reached'}), 429
             current_user.increment_message_count()
         else:
-            anonymous_messages = ChatMessage.query.filter_by(
-                session_id=session_id,
-                user_id=None
-            ).count()
-            if anonymous_messages >= 10:
-                return jsonify({'error': 'Message limit reached. Please sign in to continue.'}), 429
+            try:
+                anonymous_messages = ChatMessage.query.filter_by(
+                    session_id=session_id,
+                    user_id=None
+                ).count()
+                if anonymous_messages >= 10:
+                    return jsonify({'error': 'Message limit reached. Please sign in to continue.'}), 429
+            except Exception as e:
+                app.logger.error(f"Error checking anonymous limit: {e}")
+                return jsonify({'error': 'Database error'}), 500
         
-        search_service = SearchService()
-        results = search_service.search(query)
+        try:
+            search_service = SearchService()
+            results = search_service.search(query)
+        except Exception as e:
+            app.logger.error(f"Error performing search: {e}")
+            results = f"❌ Search error: {str(e)}"
         
         # Save search message
-        search_message = ChatMessage(
-            user_id=user_id,
-            session_id=session_id,
-            message_type='user',
-            content=f"🔍 Search: {query}"
-        )
-        db.session.add(search_message)
-        
-        # Save search results
-        results_message = ChatMessage(
-            user_id=user_id,
-            session_id=session_id,
-            message_type='assistant',
-            content=results
-        )
-        db.session.add(results_message)
-        db.session.commit()
+        try:
+            search_message = ChatMessage(
+                user_id=user_id,
+                session_id=session_id,
+                message_type='user',
+                content=f"🔍 Search: {query}"
+            )
+            db.session.add(search_message)
+            
+            # Save search results
+            results_message = ChatMessage(
+                user_id=user_id,
+                session_id=session_id,
+                message_type='assistant',
+                content=results
+            )
+            db.session.add(results_message)
+            db.session.commit()
+        except Exception as e:
+            app.logger.error(f"Error saving search messages: {e}")
+            db.session.rollback()
         
         return jsonify({
             'results': results,
@@ -234,7 +291,8 @@ def search():
         })
         
     except Exception as e:
-        return jsonify({'error': str(e)}), 500
+        app.logger.error(f"Unexpected error in search: {e}")
+        return jsonify({'error': 'Internal server error'}), 500
 
 @app.route('/api/save_api_key', methods=['POST'])
 @require_login
@@ -244,6 +302,9 @@ def save_api_key():
     
     try:
         data = request.get_json()
+        if not data:
+            return jsonify({'error': 'Invalid JSON data'}), 400
+            
         service = data.get('service')
         key_name = data.get('key_name')
         api_key = data.get('api_key')
@@ -277,7 +338,9 @@ def save_api_key():
         return jsonify({'success': True})
         
     except Exception as e:
-        return jsonify({'error': str(e)}), 500
+        app.logger.error(f"Error saving API key: {e}")
+        db.session.rollback()
+        return jsonify({'error': 'Internal server error'}), 500
 
 @app.route('/api/delete_api_key', methods=['DELETE'])
 @require_login
@@ -286,7 +349,11 @@ def delete_api_key():
         return jsonify({'error': 'Access denied'}), 403
     
     try:
-        key_id = request.json.get('key_id')
+        data = request.get_json()
+        if not data:
+            return jsonify({'error': 'Invalid JSON data'}), 400
+            
+        key_id = data.get('key_id')
         if not key_id:
             return jsonify({'error': 'Key ID required'}), 400
         
@@ -299,12 +366,17 @@ def delete_api_key():
         return jsonify({'success': True})
         
     except Exception as e:
-        return jsonify({'error': str(e)}), 500
+        app.logger.error(f"Error deleting API key: {e}")
+        db.session.rollback()
+        return jsonify({'error': 'Internal server error'}), 500
 
 @app.route('/api/save_model_preference', methods=['POST'])
 def save_model_preference():
     try:
         data = request.get_json()
+        if not data:
+            return jsonify({'error': 'Invalid JSON data'}), 400
+            
         model = data.get('model', 'openai/gpt-3.5-turbo')
         
         user_id = current_user.id if current_user.is_authenticated else None
@@ -331,7 +403,9 @@ def save_model_preference():
         return jsonify({'success': True})
         
     except Exception as e:
-        return jsonify({'error': str(e)}), 500
+        app.logger.error(f"Error saving model preference: {e}")
+        db.session.rollback()
+        return jsonify({'error': 'Internal server error'}), 500
 
 @app.route('/api/get_model_preference')
 def get_model_preference():
@@ -350,7 +424,8 @@ def get_model_preference():
         return jsonify({'model': model})
         
     except Exception as e:
-        return jsonify({'error': str(e)}), 500
+        app.logger.error(f"Error getting model preference: {e}")
+        return jsonify({'error': 'Internal server error'}), 500
 
 @app.route('/api/manage_user', methods=['POST'])
 @require_login
@@ -360,6 +435,9 @@ def manage_user():
     
     try:
         data = request.get_json()
+        if not data:
+            return jsonify({'error': 'Invalid JSON data'}), 400
+            
         action = data.get('action')
         user_id = data.get('user_id')
         
@@ -395,7 +473,9 @@ def manage_user():
             return jsonify({'error': 'Invalid action'}), 400
         
     except Exception as e:
-        return jsonify({'error': str(e)}), 500
+        app.logger.error(f"Error managing user: {e}")
+        db.session.rollback()
+        return jsonify({'error': 'Internal server error'}), 500
 
 @app.route('/api/get_chat_history')
 def get_chat_history():
@@ -425,7 +505,8 @@ def get_chat_history():
         })
         
     except Exception as e:
-        return jsonify({'error': str(e)}), 500
+        app.logger.error(f"Error getting chat history: {e}")
+        return jsonify({'error': 'Internal server error'}), 500
 
 @app.route('/api/clear_chat', methods=['POST'])
 def clear_chat():
@@ -442,16 +523,22 @@ def clear_chat():
         return jsonify({'success': True})
         
     except Exception as e:
-        return jsonify({'error': str(e)}), 500
+        app.logger.error(f"Error clearing chat: {e}")
+        db.session.rollback()
+        return jsonify({'error': 'Internal server error'}), 500
 
 def get_messages_remaining():
-    if current_user.is_authenticated:
-        if current_user.role == 'vip' or current_user.is_creator:
-            return -1  # Unlimited
-        return max(0, current_user.daily_message_limit - current_user.messages_used_today)
-    else:
-        session_id = session.get('session_id')
-        if session_id:
-            used = ChatMessage.query.filter_by(session_id=session_id, user_id=None).count()
-            return max(0, 10 - used)
-        return 10
+    try:
+        if current_user.is_authenticated:
+            if current_user.role == 'vip' or current_user.is_creator:
+                return -1  # Unlimited
+            return max(0, current_user.daily_message_limit - current_user.messages_used_today)
+        else:
+            session_id = session.get('session_id')
+            if session_id:
+                used = ChatMessage.query.filter_by(session_id=session_id, user_id=None).count()
+                return max(0, 10 - used)
+            return 10
+    except Exception as e:
+        app.logger.error(f"Error getting messages remaining: {e}")
+        return 0

@@ -16,33 +16,41 @@ class AIService:
     
     def get_active_openrouter_key(self, user_id: Optional[str] = None) -> Optional[str]:
         """Get an active OpenRouter API key, with rotation on failure"""
-        # Get all active OpenRouter keys
-        keys = APIKey.query.filter_by(service='openrouter', is_active=True).all()
-        
-        if not keys:
+        try:
+            # Get all active OpenRouter keys
+            keys = APIKey.query.filter_by(service='openrouter', is_active=True).all()
+            
+            if not keys:
+                return None
+            
+            # Try each key with rotation
+            for key in keys:
+                try:
+                    decrypted_key = self.encryption_service.decrypt(key.encrypted_key)
+                    # Test the key with a simple request
+                    if self._test_openrouter_key(decrypted_key):
+                        key.last_used = db.func.now()
+                        db.session.commit()
+                        return decrypted_key
+                except Exception as e:
+                    logging.warning(f"OpenRouter key {key.key_name} failed: {e}")
+                    continue
+            
             return None
-        
-        # Try each key with rotation
-        for key in keys:
-            try:
-                decrypted_key = self.encryption_service.decrypt(key.encrypted_key)
-                # Test the key with a simple request
-                if self._test_openrouter_key(decrypted_key):
-                    key.last_used = db.func.now()
-                    db.session.commit()
-                    return decrypted_key
-            except Exception as e:
-                logging.warning(f"OpenRouter key {key.key_name} failed: {e}")
-                continue
-        
-        return None
+        except Exception as e:
+            logging.error(f"Error getting OpenRouter key: {e}")
+            return None
     
     def get_active_google_ai_key(self) -> Optional[str]:
         """Get an active Google AI API key"""
-        key = APIKey.query.filter_by(service='google_ai', is_active=True).first()
-        if key:
-            return self.encryption_service.decrypt(key.encrypted_key)
-        return None
+        try:
+            key = APIKey.query.filter_by(service='google_ai', is_active=True).first()
+            if key:
+                return self.encryption_service.decrypt(key.encrypted_key)
+            return None
+        except Exception as e:
+            logging.error(f"Error getting Google AI key: {e}")
+            return None
     
     def _test_openrouter_key(self, api_key: str) -> bool:
         """Test if an OpenRouter API key is valid"""
@@ -59,21 +67,26 @@ class AIService:
             )
             
             return response.status_code == 200
-        except:
+        except Exception as e:
+            logging.warning(f"Error testing OpenRouter key: {e}")
             return False
     
     def get_user_preferred_model(self, user_id: Optional[str] = None, session_id: Optional[str] = None) -> str:
         """Get user's preferred model or default"""
-        from models import UserModelPreference
-        
-        if user_id:
-            preference = UserModelPreference.query.filter_by(user_id=user_id).first()
-        elif session_id:
-            preference = UserModelPreference.query.filter_by(session_id=session_id).first()
-        else:
-            preference = None
+        try:
+            from models import UserModelPreference
             
-        return preference.preferred_model if preference else "openai/gpt-3.5-turbo"
+            if user_id:
+                preference = UserModelPreference.query.filter_by(user_id=user_id).first()
+            elif session_id:
+                preference = UserModelPreference.query.filter_by(session_id=session_id).first()
+            else:
+                preference = None
+                
+            return preference.preferred_model if preference else "openai/gpt-3.5-turbo"
+        except Exception as e:
+            logging.error(f"Error getting user preferred model: {e}")
+            return "openai/gpt-3.5-turbo"
     
     def get_chat_response(self, message: str, user_context: str, model: Optional[str] = None) -> str:
         """Get AI chat response using OpenRouter"""
@@ -84,10 +97,13 @@ class AIService:
         # Use provided model or get user preference
         if not model:
             # Extract user_id or session_id from user_context for model preference
-            if user_context and user_context.isdigit():
-                model = self.get_user_preferred_model(user_id=user_context)
+            if user_context and user_context.replace('-', '').replace('_', '').isalnum():
+                if len(user_context) < 20:  # Likely a user ID
+                    model = self.get_user_preferred_model(user_id=user_context)
+                else:  # Likely a session ID
+                    model = self.get_user_preferred_model(session_id=user_context)
             else:
-                model = self.get_user_preferred_model(session_id=user_context)
+                model = self.get_user_preferred_model()
         
         try:
             headers = {
@@ -133,7 +149,8 @@ class AIService:
                 time.sleep(0.75)
                 return "⏳ Rate limit reached. Please try again in a moment."
             else:
-                return f"❌ AI service error: {response.status_code} - {response.text[:200]}"
+                error_text = response.text[:200] if response.text else "Unknown error"
+                return f"❌ AI service error: {response.status_code} - {error_text}"
                 
         except requests.exceptions.Timeout:
             return "⏳ Request timed out. Please try again."
@@ -194,23 +211,27 @@ class AIService:
     
     def process_file_content(self, file_data: Dict[str, Any], user_context: str) -> str:
         """Process file content and get AI response"""
-        if file_data['type'] == 'image':
-            # First describe the image
-            description = self.describe_image(file_data['content'], file_data['filename'])
+        try:
+            if file_data['type'] == 'image':
+                # First describe the image
+                description = self.describe_image(file_data['content'], file_data['filename'])
+                
+                # Then get AI response about the image
+                prompt = f"I've uploaded an image: {file_data['filename']}\n\nImage description: {description}\n\nCan you tell me more about this image and what you observe?"
+                return self.get_chat_response(prompt, user_context)
             
-            # Then get AI response about the image
-            prompt = f"I've uploaded an image: {file_data['filename']}\n\nImage description: {description}\n\nCan you tell me more about this image and what you observe?"
-            return self.get_chat_response(prompt, user_context)
-        
-        elif file_data['type'] == 'text':
-            content = file_data['content'][:4000]  # Limit content length
-            prompt = f"I've uploaded a text file: {file_data['filename']}\n\nContent:\n{content}\n\nCan you summarize this content and provide insights?"
-            return self.get_chat_response(prompt, user_context)
-        
-        elif file_data['type'] == 'pdf':
-            content = file_data['content'][:4000]  # Limit content length
-            prompt = f"I've uploaded a PDF file: {file_data['filename']}\n\nExtracted content:\n{content}\n\nCan you summarize this document and provide key insights?"
-            return self.get_chat_response(prompt, user_context)
-        
-        else:
-            return f"✅ File uploaded: {file_data['filename']}. File type processing not yet supported."
+            elif file_data['type'] == 'text':
+                content = file_data['content'][:4000]  # Limit content length
+                prompt = f"I've uploaded a text file: {file_data['filename']}\n\nContent:\n{content}\n\nCan you summarize this content and provide insights?"
+                return self.get_chat_response(prompt, user_context)
+            
+            elif file_data['type'] == 'pdf':
+                content = file_data['content'][:4000]  # Limit content length
+                prompt = f"I've uploaded a PDF file: {file_data['filename']}\n\nExtracted content:\n{content}\n\nCan you summarize this document and provide key insights?"
+                return self.get_chat_response(prompt, user_context)
+            
+            else:
+                return f"✅ File uploaded: {file_data['filename']}. File type processing not yet supported."
+        except Exception as e:
+            logging.error(f"Error processing file content: {e}")
+            return f"❌ Error processing file: {str(e)}"

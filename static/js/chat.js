@@ -20,10 +20,10 @@ class ChatInterface {
     
     initializeEventListeners() {
         // Send message on button click
-        this.sendBtn.addEventListener('click', () => this.sendMessage());
+        this.sendBtn?.addEventListener('click', () => this.sendMessage());
         
         // Send message on Enter key
-        this.messageInput.addEventListener('keypress', (e) => {
+        this.messageInput?.addEventListener('keypress', (e) => {
             if (e.key === 'Enter' && !e.shiftKey) {
                 e.preventDefault();
                 this.sendMessage();
@@ -31,22 +31,24 @@ class ChatInterface {
         });
         
         // Search functionality
-        this.searchBtn.addEventListener('click', () => this.performSearch());
+        this.searchBtn?.addEventListener('click', () => this.performSearch());
         
         // Clear chat
-        this.clearChatBtn.addEventListener('click', () => this.clearChat());
+        this.clearChatBtn?.addEventListener('click', () => this.clearChat());
         
         // Auto-resize text input
-        this.messageInput.addEventListener('input', () => {
+        this.messageInput?.addEventListener('input', () => {
             this.messageInput.style.height = 'auto';
             this.messageInput.style.height = this.messageInput.scrollHeight + 'px';
         });
         
         // Model selection change
-        this.modelSelect.addEventListener('change', () => this.saveModelPreference());
+        this.modelSelect?.addEventListener('change', () => this.saveModelPreference());
     }
     
     async sendMessage() {
+        if (!this.messageInput || !this.sendBtn) return;
+        
         const message = this.messageInput.value.trim();
         if (!message || this.isTyping) return;
         
@@ -69,7 +71,7 @@ class ChatInterface {
                 },
                 body: JSON.stringify({ 
                     message: message,
-                    model: this.modelSelect.value 
+                    model: this.modelSelect?.value || 'openai/gpt-3.5-turbo'
                 })
             });
             
@@ -91,11 +93,13 @@ class ChatInterface {
         } finally {
             this.hideTypingIndicator();
             this.setControlsDisabled(false);
-            this.messageInput.focus();
+            this.messageInput?.focus();
         }
     }
     
     async performSearch() {
+        if (!this.messageInput || !this.searchBtn) return;
+        
         const query = this.messageInput.value.trim();
         if (!query || this.isTyping) return;
         
@@ -136,11 +140,13 @@ class ChatInterface {
         } finally {
             this.hideTypingIndicator();
             this.setControlsDisabled(false);
-            this.messageInput.focus();
+            this.messageInput?.focus();
         }
     }
     
     addMessage(type, content, timestamp = null, fileData = null) {
+        if (!this.messagesContainer) return;
+        
         // Remove welcome message if it exists
         const welcomeMessage = this.messagesContainer.querySelector('.welcome-message');
         if (welcomeMessage) {
@@ -159,8 +165,13 @@ class ChatInterface {
             messageContent.appendChild(filePreview);
         }
         
-        // Convert markdown to HTML
-        const htmlContent = marked.parse(content);
+        // Convert markdown to HTML if marked is available
+        let htmlContent;
+        if (typeof marked !== 'undefined') {
+            htmlContent = marked.parse(content);
+        } else {
+            htmlContent = content.replace(/\n/g, '<br>');
+        }
         messageContent.innerHTML += htmlContent;
         
         const messageTime = document.createElement('div');
@@ -207,30 +218,42 @@ class ChatInterface {
     
     showTypingIndicator() {
         this.isTyping = true;
-        this.typingIndicator.style.display = 'flex';
+        if (this.typingIndicator) {
+            this.typingIndicator.style.display = 'flex';
+        }
     }
     
     hideTypingIndicator() {
         this.isTyping = false;
-        this.typingIndicator.style.display = 'none';
+        if (this.typingIndicator) {
+            this.typingIndicator.style.display = 'none';
+        }
     }
     
     setControlsDisabled(disabled) {
-        this.sendBtn.disabled = disabled;
-        this.searchBtn.disabled = disabled;
-        this.messageInput.disabled = disabled;
+        if (this.sendBtn) {
+            this.sendBtn.disabled = disabled;
+            this.sendBtn.innerHTML = disabled ? 
+                '<i class="fas fa-spinner fa-spin"></i>' : 
+                '<i class="fas fa-paper-plane"></i>';
+        }
         
-        if (disabled) {
-            this.sendBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
-            this.searchBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
-        } else {
-            this.sendBtn.innerHTML = '<i class="fas fa-paper-plane"></i>';
-            this.searchBtn.innerHTML = '<i class="fas fa-search"></i>';
+        if (this.searchBtn) {
+            this.searchBtn.disabled = disabled;
+            this.searchBtn.innerHTML = disabled ? 
+                '<i class="fas fa-spinner fa-spin"></i>' : 
+                '<i class="fas fa-search"></i>';
+        }
+        
+        if (this.messageInput) {
+            this.messageInput.disabled = disabled;
         }
     }
     
     scrollToBottom() {
-        this.messagesContainer.scrollTop = this.messagesContainer.scrollHeight;
+        if (this.messagesContainer) {
+            this.messagesContainer.scrollTop = this.messagesContainer.scrollHeight;
+        }
     }
     
     async loadChatHistory() {
@@ -238,7 +261,7 @@ class ChatInterface {
             const response = await fetch('/api/get_chat_history');
             const data = await response.json();
             
-            if (response.ok && data.messages) {
+            if (response.ok && data.messages && this.messagesContainer) {
                 // Clear existing messages
                 this.messagesContainer.innerHTML = '';
                 
@@ -281,7 +304,7 @@ class ChatInterface {
                 }
             });
             
-            if (response.ok) {
+            if (response.ok && this.messagesContainer) {
                 this.messagesContainer.innerHTML = `
                     <div class="welcome-message text-center">
                         <div class="cyber-logo mb-3">
@@ -299,6 +322,8 @@ class ChatInterface {
     }
     
     updateMessageCount() {
+        if (!this.messagesRemainingSpan) return;
+        
         if (this.messagesRemaining === -1) {
             this.messagesRemainingSpan.textContent = 'Unlimited';
             this.messagesRemainingSpan.className = 'text-success';
@@ -315,6 +340,8 @@ class ChatInterface {
     }
     
     showMessageLimitWarning() {
+        if (!this.messagesContainer) return;
+        
         const alert = document.createElement('div');
         alert.className = 'alert alert-warning alert-dismissible fade show';
         alert.innerHTML = `
@@ -337,7 +364,7 @@ class ChatInterface {
             const response = await fetch('/api/get_model_preference');
             const data = await response.json();
             
-            if (response.ok && data.model) {
+            if (response.ok && data.model && this.modelSelect) {
                 this.modelSelect.value = data.model;
             }
         } catch (error) {
@@ -346,6 +373,8 @@ class ChatInterface {
     }
     
     async saveModelPreference() {
+        if (!this.modelSelect) return;
+        
         try {
             await fetch('/api/save_model_preference', {
                 method: 'POST',
