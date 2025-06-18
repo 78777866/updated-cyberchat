@@ -7,6 +7,7 @@ class ChatInterface {
         this.clearChatBtn = document.getElementById('clearChatBtn');
         this.typingIndicator = document.getElementById('typingIndicator');
         this.messagesRemainingSpan = document.getElementById('messagesRemaining');
+        this.modelSelect = document.getElementById('modelSelect');
         
         this.isTyping = false;
         this.messagesRemaining = -1;
@@ -14,6 +15,7 @@ class ChatInterface {
         this.initializeEventListeners();
         this.loadChatHistory();
         this.updateMessageCount();
+        this.loadModelPreference();
     }
     
     initializeEventListeners() {
@@ -39,6 +41,9 @@ class ChatInterface {
             this.messageInput.style.height = 'auto';
             this.messageInput.style.height = this.messageInput.scrollHeight + 'px';
         });
+        
+        // Model selection change
+        this.modelSelect.addEventListener('change', () => this.saveModelPreference());
     }
     
     async sendMessage() {
@@ -62,7 +67,10 @@ class ChatInterface {
                 headers: {
                     'Content-Type': 'application/json',
                 },
-                body: JSON.stringify({ message: message })
+                body: JSON.stringify({ 
+                    message: message,
+                    model: this.modelSelect.value 
+                })
             });
             
             const data = await response.json();
@@ -322,6 +330,33 @@ class ChatInterface {
                 alert.remove();
             }
         }, 5000);
+    }
+    
+    async loadModelPreference() {
+        try {
+            const response = await fetch('/api/get_model_preference');
+            const data = await response.json();
+            
+            if (response.ok && data.model) {
+                this.modelSelect.value = data.model;
+            }
+        } catch (error) {
+            console.error('Error loading model preference:', error);
+        }
+    }
+    
+    async saveModelPreference() {
+        try {
+            await fetch('/api/save_model_preference', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({ model: this.modelSelect.value })
+            });
+        } catch (error) {
+            console.error('Error saving model preference:', error);
+        }
     }
 }
 

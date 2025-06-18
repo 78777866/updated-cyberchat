@@ -47,6 +47,22 @@
                     <small class="text-muted ms-2">AI is thinking...</small>
                 </div>
                 
+                <!-- Model Selection -->
+                <div class="model-selection mb-2">
+                    <select class="form-select form-select-sm" id="modelSelect" title="Select AI Model">
+                        <option value="openai/gpt-3.5-turbo">GPT-3.5 Turbo</option>
+                        <option value="openai/gpt-4">GPT-4</option>
+                        <option value="openai/gpt-4-turbo">GPT-4 Turbo</option>
+                        <option value="anthropic/claude-3-haiku">Claude 3 Haiku</option>
+                        <option value="anthropic/claude-3-sonnet">Claude 3 Sonnet</option>
+                        <option value="anthropic/claude-3-opus">Claude 3 Opus</option>
+                        <option value="google/gemini-pro">Gemini Pro</option>
+                        <option value="meta-llama/llama-2-70b-chat">Llama 2 70B</option>
+                        <option value="mistralai/mixtral-8x7b-instruct">Mixtral 8x7B</option>
+                        <option value="perplexity/llama-3-sonar-large-32k-online">Perplexity Sonar</option>
+                    </select>
+                </div>
+
                 <div class="input-group">
                     <button class="btn btn-outline-primary" type="button" id="fileUploadBtn" title="Upload File">
                         <i class="fas fa-paperclip"></i>

@@ -6,7 +6,7 @@ from flask_login import current_user
 from werkzeug.utils import secure_filename
 
 from app import app, db
-from models import User, APIKey, ChatMessage, SystemSettings
+from models import User, APIKey, ChatMessage, SystemSettings, UserModelPreference
 from replit_auth import require_login, make_replit_blueprint
 from services.ai_service import AIService
 from services.file_service import FileService
@@ -274,6 +274,124 @@ def save_api_key():
         
         db.session.commit()
         return jsonify({'success': True})
+        
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/delete_api_key', methods=['DELETE'])
+@require_login
+def delete_api_key():
+    if not current_user.is_creator:
+        return jsonify({'error': 'Access denied'}), 403
+    
+    try:
+        key_id = request.json.get('key_id')
+        if not key_id:
+            return jsonify({'error': 'Key ID required'}), 400
+        
+        api_key = APIKey.query.filter_by(id=key_id, user_id=current_user.id).first()
+        if not api_key:
+            return jsonify({'error': 'API key not found'}), 404
+        
+        db.session.delete(api_key)
+        db.session.commit()
+        return jsonify({'success': True})
+        
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/save_model_preference', methods=['POST'])
+def save_model_preference():
+    try:
+        data = request.get_json()
+        model = data.get('model', 'openai/gpt-3.5-turbo')
+        
+        user_id = current_user.id if current_user.is_authenticated else None
+        session_id = session.get('session_id') if not current_user.is_authenticated else None
+        
+        if user_id:
+            preference = UserModelPreference.query.filter_by(user_id=user_id).first()
+            if preference:
+                preference.preferred_model = model
+                preference.updated_at = datetime.utcnow()
+            else:
+                preference = UserModelPreference(user_id=user_id, preferred_model=model)
+                db.session.add(preference)
+        elif session_id:
+            preference = UserModelPreference.query.filter_by(session_id=session_id).first()
+            if preference:
+                preference.preferred_model = model
+                preference.updated_at = datetime.utcnow()
+            else:
+                preference = UserModelPreference(session_id=session_id, preferred_model=model)
+                db.session.add(preference)
+        
+        db.session.commit()
+        return jsonify({'success': True})
+        
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/get_model_preference')
+def get_model_preference():
+    try:
+        user_id = current_user.id if current_user.is_authenticated else None
+        session_id = session.get('session_id') if not current_user.is_authenticated else None
+        
+        if user_id:
+            preference = UserModelPreference.query.filter_by(user_id=user_id).first()
+        elif session_id:
+            preference = UserModelPreference.query.filter_by(session_id=session_id).first()
+        else:
+            preference = None
+        
+        model = preference.preferred_model if preference else 'openai/gpt-3.5-turbo'
+        return jsonify({'model': model})
+        
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/manage_user', methods=['POST'])
+@require_login
+def manage_user():
+    if not current_user.is_creator:
+        return jsonify({'error': 'Access denied'}), 403
+    
+    try:
+        data = request.get_json()
+        action = data.get('action')
+        user_id = data.get('user_id')
+        
+        if action == 'update_role':
+            new_role = data.get('role')
+            new_limit = data.get('daily_limit')
+            
+            user = User.query.get(user_id)
+            if not user:
+                return jsonify({'error': 'User not found'}), 404
+            
+            user.role = new_role
+            if new_limit is not None:
+                user.daily_message_limit = new_limit
+            
+            db.session.commit()
+            return jsonify({'success': True})
+            
+        elif action == 'delete_user':
+            user = User.query.get(user_id)
+            if not user:
+                return jsonify({'error': 'User not found'}), 404
+            
+            if user.is_creator:
+                return jsonify({'error': 'Cannot delete creator accounts'}), 400
+            
+            # Delete user and all related data
+            db.session.delete(user)
+            db.session.commit()
+            return jsonify({'success': True})
+        
+        else:
+            return jsonify({'error': 'Invalid action'}), 400
         
     except Exception as e:
         return jsonify({'error': str(e)}), 500

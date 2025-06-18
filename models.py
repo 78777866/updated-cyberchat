@@ -101,3 +101,12 @@ class SystemSettings(db.Model):
     setting_value = db.Column(db.Text, nullable=False)
     updated_by = db.Column(db.String, db.ForeignKey('users.id'))
     updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+class UserModelPreference(db.Model):
+    __tablename__ = 'user_model_preferences'
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.String, db.ForeignKey('users.id'), nullable=True)  # None for anonymous users
+    session_id = db.Column(db.String, nullable=True)  # For anonymous users
+    preferred_model = db.Column(db.String, default='openai/gpt-3.5-turbo')
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)

@@ -62,11 +62,32 @@ class AIService:
         except:
             return False
     
-    def get_chat_response(self, message: str, user_context: str) -> str:
+    def get_user_preferred_model(self, user_id: Optional[str] = None, session_id: Optional[str] = None) -> str:
+        """Get user's preferred model or default"""
+        from models import UserModelPreference
+        
+        if user_id:
+            preference = UserModelPreference.query.filter_by(user_id=user_id).first()
+        elif session_id:
+            preference = UserModelPreference.query.filter_by(session_id=session_id).first()
+        else:
+            preference = None
+            
+        return preference.preferred_model if preference else "openai/gpt-3.5-turbo"
+    
+    def get_chat_response(self, message: str, user_context: str, model: Optional[str] = None) -> str:
         """Get AI chat response using OpenRouter"""
         api_key = self.get_active_openrouter_key()
         if not api_key:
             return "❌ No active OpenRouter API key found. Please configure API keys in settings."
+        
+        # Use provided model or get user preference
+        if not model:
+            # Extract user_id or session_id from user_context for model preference
+            if user_context and user_context.isdigit():
+                model = self.get_user_preferred_model(user_id=user_context)
+            else:
+                model = self.get_user_preferred_model(session_id=user_context)
         
         try:
             headers = {
@@ -77,7 +98,7 @@ class AIService:
             }
             
             data = {
-                "model": "openai/gpt-3.5-turbo",  # Default model
+                "model": model,
                 "messages": [
                     {
                         "role": "system",
