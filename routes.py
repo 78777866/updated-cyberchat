@@ -60,6 +60,7 @@ def send_message():
     try:
         data = request.get_json()
         message = data.get('message', '').strip()
+        model = data.get('model', 'openai/gpt-3.5-turbo')
         
         if not message:
             return jsonify({'error': 'Message cannot be empty'}), 400
@@ -93,7 +94,7 @@ def send_message():
         
         # Get AI response
         ai_service = AIService()
-        response = ai_service.get_chat_response(message, user_id or session_id)
+        response = ai_service.get_chat_response(message, user_id or session_id, model)
         
         # Save AI response
         ai_message = ChatMessage(
