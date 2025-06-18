@@ -2,16 +2,19 @@ import os
 import uuid
 from datetime import datetime
 from flask import render_template, request, redirect, url_for, flash, session, jsonify
-from flask_login import current_user, login_user, logout_user, login_required
+from flask_login import current_user
 from werkzeug.utils import secure_filename
 
 from app import app, db
-from models import User, APIKey, ChatMessage, SystemSettings, UserModelPreference, UserActivityLog
-from auth import authenticate_user, require_permission, log_user_activity, validate_password_strength
+from models import User, APIKey, ChatMessage, SystemSettings, UserModelPreference
+from replit_auth import require_login, make_replit_blueprint
 from services.ai_service import AIService
 from services.file_service import FileService
 from services.search_service import SearchService
 from services.encryption_service import EncryptionService
+
+# Register auth blueprint
+app.register_blueprint(make_replit_blueprint(), url_prefix="/auth")
 
 # Make session permanent
 @app.before_request
@@ -23,91 +26,6 @@ def index():
     if current_user.is_authenticated:
         return redirect(url_for('chat'))
     return render_template('index.html')
-
-@app.route('/login', methods=['GET', 'POST'])
-def login():
-    if current_user.is_authenticated:
-        return redirect(url_for('chat'))
-    
-    if request.method == 'POST':
-        username = request.form.get('username', '').strip()
-        password = request.form.get('password', '')
-        
-        # Validate input
-        if not username or not password:
-            flash('Please enter both username and password.', 'error')
-            return render_template('login.html')
-        
-        # Authenticate user
-        user, error = authenticate_user(username, password)
-        
-        if error:
-            flash(error, 'error')
-            return render_template('login.html')
-        
-        # Login successful
-        login_user(user, remember=True)
-        
-        # Check if password must be changed
-        if user.must_change_password:
-            flash('You must change your password before continuing.', 'warning')
-            return redirect(url_for('change_password'))
-        
-        # Redirect to next page or chat
-        next_page = request.args.get('next')
-        if next_page:
-            return redirect(next_page)
-        return redirect(url_for('chat'))
-    
-    return render_template('login.html')
-
-@app.route('/logout')
-@login_required
-def logout():
-    log_user_activity(current_user.id, 'logout', 'User logged out')
-    logout_user()
-    flash('You have been logged out successfully.', 'success')
-    return redirect(url_for('index'))
-
-@app.route('/change_password', methods=['GET', 'POST'])
-@login_required
-def change_password():
-    if request.method == 'POST':
-        current_password = request.form.get('current_password', '')
-        new_password = request.form.get('new_password', '')
-        confirm_password = request.form.get('confirm_password', '')
-        
-        # Validate current password (skip for forced password change)
-        if not current_user.must_change_password:
-            if not current_password or not current_user.check_password(current_password):
-                flash('Current password is incorrect.', 'error')
-                return render_template('change_password.html')
-        
-        # Validate new password
-        if not new_password or not confirm_password:
-            flash('Please fill in all password fields.', 'error')
-            return render_template('change_password.html')
-        
-        if new_password != confirm_password:
-            flash('New passwords do not match.', 'error')
-            return render_template('change_password.html')
-        
-        # Check password strength
-        is_strong, message = validate_password_strength(new_password)
-        if not is_strong:
-            flash(message, 'error')
-            return render_template('change_password.html')
-        
-        # Update password
-        current_user.set_password(new_password)
-        current_user.must_change_password = False
-        db.session.commit()
-        
-        log_user_activity(current_user.id, 'password_change', 'Password changed successfully')
-        flash('Password changed successfully.', 'success')
-        return redirect(url_for('chat'))
-    
-    return render_template('change_password.html')
 
 @app.route('/chat')
 def chat():
@@ -122,33 +40,21 @@ def chat():
         ).count()
         if anonymous_messages >= 10:  # Anonymous limit
             flash('You have reached the message limit. Please sign in to continue.', 'warning')
-            return redirect(url_for('login'))
+            return redirect(url_for('index'))
     
     return render_template('chat.html')
 
 @app.route('/settings')
-@require_permission('manage_system')
+@require_login
 def settings():
+    if not current_user.is_creator:
+        flash('Access denied. Creator privileges required.', 'error')
+        return redirect(url_for('chat'))
+    
     api_keys = APIKey.query.filter_by(user_id=current_user.id).all()
     users = User.query.all()
     return render_template('settings.html', api_keys=api_keys, users=users)
 
-@app.route('/users')
-@require_permission('manage_users')
-def users():
-    users = User.query.all()
-    return render_template('users.html', users=users)
-
-@app.route('/activity_logs')
-@require_permission('view_logs')
-def activity_logs():
-    page = request.args.get('page', 1, type=int)
-    logs = UserActivityLog.query.order_by(UserActivityLog.created_at.desc()).paginate(
-        page=page, per_page=50, error_out=False
-    )
-    return render_template('activity_logs.html', logs=logs)
-
-# API Routes
 @app.route('/api/send_message', methods=['POST'])
 def send_message():
     try:
@@ -331,8 +237,11 @@ def search():
         return jsonify({'error': str(e)}), 500
 
 @app.route('/api/save_api_key', methods=['POST'])
-@require_permission('manage_api_keys')
+@require_login
 def save_api_key():
+    if not current_user.is_creator:
+        return jsonify({'error': 'Access denied'}), 403
+    
     try:
         data = request.get_json()
         service = data.get('service')
@@ -365,15 +274,17 @@ def save_api_key():
             db.session.add(new_key)
         
         db.session.commit()
-        log_user_activity(current_user.id, 'api_key_saved', f'API key saved for service: {service}')
         return jsonify({'success': True})
         
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
 @app.route('/api/delete_api_key', methods=['DELETE'])
-@require_permission('manage_api_keys')
+@require_login
 def delete_api_key():
+    if not current_user.is_creator:
+        return jsonify({'error': 'Access denied'}), 403
+    
     try:
         key_id = request.json.get('key_id')
         if not key_id:
@@ -385,118 +296,7 @@ def delete_api_key():
         
         db.session.delete(api_key)
         db.session.commit()
-        log_user_activity(current_user.id, 'api_key_deleted', f'API key deleted: {api_key.key_name}')
         return jsonify({'success': True})
-        
-    except Exception as e:
-        return jsonify({'error': str(e)}), 500
-
-@app.route('/api/create_user', methods=['POST'])
-@require_permission('manage_users')
-def create_user():
-    try:
-        data = request.get_json()
-        username = data.get('username', '').strip()
-        email = data.get('email', '').strip()
-        password = data.get('password', '')
-        role = data.get('role', 'user')
-        first_name = data.get('first_name', '').strip()
-        last_name = data.get('last_name', '').strip()
-        
-        if not username or not password:
-            return jsonify({'error': 'Username and password are required'}), 400
-        
-        # Check if username already exists
-        if User.query.filter_by(username=username).first():
-            return jsonify({'error': 'Username already exists'}), 400
-        
-        # Check if email already exists (if provided)
-        if email and User.query.filter_by(email=email).first():
-            return jsonify({'error': 'Email already exists'}), 400
-        
-        # Validate password strength
-        is_strong, message = validate_password_strength(password)
-        if not is_strong:
-            return jsonify({'error': message}), 400
-        
-        # Create new user
-        new_user = User(
-            username=username,
-            email=email if email else None,
-            first_name=first_name if first_name else None,
-            last_name=last_name if last_name else None,
-            role=role,
-            is_active=True
-        )
-        new_user.set_password(password)
-        
-        db.session.add(new_user)
-        db.session.commit()
-        
-        log_user_activity(current_user.id, 'user_created', f'Created user: {username}')
-        return jsonify({'success': True, 'user_id': new_user.id})
-        
-    except Exception as e:
-        return jsonify({'error': str(e)}), 500
-
-@app.route('/api/manage_user', methods=['POST'])
-@require_permission('manage_users')
-def manage_user():
-    try:
-        data = request.get_json()
-        action = data.get('action')
-        user_id = data.get('user_id')
-        
-        if action == 'update_role':
-            new_role = data.get('role')
-            new_limit = data.get('daily_limit')
-            
-            user = User.query.get(user_id)
-            if not user:
-                return jsonify({'error': 'User not found'}), 404
-            
-            # Prevent changing owner role
-            if user.role == 'owner' and current_user.role != 'owner':
-                return jsonify({'error': 'Cannot modify owner account'}), 403
-            
-            user.role = new_role
-            if new_limit is not None:
-                user.daily_message_limit = new_limit
-            
-            db.session.commit()
-            log_user_activity(current_user.id, 'user_updated', f'Updated user: {user.username}')
-            return jsonify({'success': True})
-            
-        elif action == 'delete_user':
-            user = User.query.get(user_id)
-            if not user:
-                return jsonify({'error': 'User not found'}), 404
-            
-            if user.role == 'owner':
-                return jsonify({'error': 'Cannot delete owner account'}), 400
-            
-            # Delete user and all related data
-            db.session.delete(user)
-            db.session.commit()
-            log_user_activity(current_user.id, 'user_deleted', f'Deleted user: {user.username}')
-            return jsonify({'success': True})
-        
-        elif action == 'reset_password':
-            user = User.query.get(user_id)
-            if not user:
-                return jsonify({'error': 'User not found'}), 404
-            
-            # Generate temporary password
-            temp_password = 'TempPass123!'
-            user.set_password(temp_password)
-            user.must_change_password = True
-            
-            db.session.commit()
-            log_user_activity(current_user.id, 'password_reset', f'Reset password for user: {user.username}')
-            return jsonify({'success': True, 'temp_password': temp_password})
-        
-        else:
-            return jsonify({'error': 'Invalid action'}), 400
         
     except Exception as e:
         return jsonify({'error': str(e)}), 500
@@ -552,6 +352,51 @@ def get_model_preference():
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
+@app.route('/api/manage_user', methods=['POST'])
+@require_login
+def manage_user():
+    if not current_user.is_creator:
+        return jsonify({'error': 'Access denied'}), 403
+    
+    try:
+        data = request.get_json()
+        action = data.get('action')
+        user_id = data.get('user_id')
+        
+        if action == 'update_role':
+            new_role = data.get('role')
+            new_limit = data.get('daily_limit')
+            
+            user = User.query.get(user_id)
+            if not user:
+                return jsonify({'error': 'User not found'}), 404
+            
+            user.role = new_role
+            if new_limit is not None:
+                user.daily_message_limit = new_limit
+            
+            db.session.commit()
+            return jsonify({'success': True})
+            
+        elif action == 'delete_user':
+            user = User.query.get(user_id)
+            if not user:
+                return jsonify({'error': 'User not found'}), 404
+            
+            if user.is_creator:
+                return jsonify({'error': 'Cannot delete creator accounts'}), 400
+            
+            # Delete user and all related data
+            db.session.delete(user)
+            db.session.commit()
+            return jsonify({'success': True})
+        
+        else:
+            return jsonify({'error': 'Invalid action'}), 400
+        
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
 @app.route('/api/get_chat_history')
 def get_chat_history():
     try:
@@ -601,7 +446,7 @@ def clear_chat():
 
 def get_messages_remaining():
     if current_user.is_authenticated:
-        if current_user.role in ['owner', 'admin']:
+        if current_user.role == 'vip' or current_user.is_creator:
             return -1  # Unlimited
         return max(0, current_user.daily_message_limit - current_user.messages_used_today)
     else:
