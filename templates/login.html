@@ -1,0 +1,177 @@
+{% extends "base.html" %}
+
+{% block title %}Login - CyberChat AI{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="row justify-content-center align-items-center min-vh-100">
+        <div class="col-lg-4 col-md-6 col-sm-8">
+            <div class="login-card">
+                <div class="text-center mb-4">
+                    <div class="cyber-logo mb-3">
+                        <i class="fas fa-robot"></i>
+                    </div>
+                    <h2 class="cyber-title">CyberChat AI</h2>
+                    <p class="text-muted">Sign in to your account</p>
+                </div>
+                
+                <form method="POST" id="loginForm">
+                    <div class="mb-3">
+                        <label for="username" class="form-label">
+                            <i class="fas fa-user me-2"></i>Username
+                        </label>
+                        <input type="text" class="form-control" id="username" name="username" 
+                               required maxlength="80" autocomplete="username">
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="password" class="form-label">
+                            <i class="fas fa-lock me-2"></i>Password
+                        </label>
+                        <div class="input-group">
+                            <input type="password" class="form-control" id="password" name="password" 
+                                   required autocomplete="current-password">
+                            <button class="btn btn-outline-secondary" type="button" id="togglePassword">
+                                <i class="fas fa-eye" id="togglePasswordIcon"></i>
+                            </button>
+                        </div>
+                    </div>
+                    
+                    <div class="d-grid mb-3">
+                        <button type="submit" class="btn btn-primary cyber-btn" id="loginBtn">
+                            <i class="fas fa-sign-in-alt me-2"></i>Sign In
+                        </button>
+                    </div>
+                </form>
+                
+                <div class="text-center">
+                    <a href="{{ url_for('index') }}" class="btn btn-outline-secondary">
+                        <i class="fas fa-arrow-left me-2"></i>Back to Home
+                    </a>
+                </div>
+                
+                <div class="login-info mt-4">
+                    <div class="alert alert-info">
+                        <i class="fas fa-info-circle me-2"></i>
+                        <strong>Default Owner Account:</strong><br>
+                        Username: <code>Kayushan</code><br>
+                        Password: <code>TempPass123!</code><br>
+                        <small class="text-muted">You will be required to change the password on first login.</small>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const loginForm = document.getElementById('loginForm');
+    const loginBtn = document.getElementById('loginBtn');
+    const togglePassword = document.getElementById('togglePassword');
+    const passwordInput = document.getElementById('password');
+    const togglePasswordIcon = document.getElementById('togglePasswordIcon');
+    
+    // Password visibility toggle
+    togglePassword.addEventListener('click', function() {
+        const type = passwordInput.getAttribute('type') === 'password' ? 'text' : 'password';
+        passwordInput.setAttribute('type', type);
+        
+        if (type === 'text') {
+            togglePasswordIcon.className = 'fas fa-eye-slash';
+        } else {
+            togglePasswordIcon.className = 'fas fa-eye';
+        }
+    });
+    
+    // Form submission handling
+    loginForm.addEventListener('submit', function(e) {
+        const username = document.getElementById('username').value.trim();
+        const password = document.getElementById('password').value;
+        
+        // Client-side validation
+        if (!username || !password) {
+            e.preventDefault();
+            showError('Please enter both username and password.');
+            return;
+        }
+        
+        // Show loading state
+        loginBtn.disabled = true;
+        loginBtn.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i>Signing In...';
+    });
+    
+    function showError(message) {
+        // Remove existing alerts
+        const existingAlerts = document.querySelectorAll('.alert-danger');
+        existingAlerts.forEach(alert => alert.remove());
+        
+        // Create new alert
+        const alertDiv = document.createElement('div');
+        alertDiv.className = 'alert alert-danger alert-dismissible fade show';
+        alertDiv.innerHTML = `
+            <i class="fas fa-exclamation-triangle me-2"></i>
+            ${message}
+            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        `;
+        
+        // Insert alert before form
+        loginForm.parentNode.insertBefore(alertDiv, loginForm);
+        
+        // Reset button state
+        loginBtn.disabled = false;
+        loginBtn.innerHTML = '<i class="fas fa-sign-in-alt me-2"></i>Sign In';
+    }
+    
+    // Auto-focus username field
+    document.getElementById('username').focus();
+});
+</script>
+
+<style>
+.login-card {
+    background: rgba(26, 26, 26, 0.95);
+    border: 1px solid var(--cyber-border);
+    border-radius: 15px;
+    padding: 2rem;
+    backdrop-filter: blur(10px);
+    box-shadow: var(--cyber-glow);
+}
+
+.cyber-logo i {
+    font-size: 3rem;
+    color: var(--cyber-primary);
+    text-shadow: var(--cyber-glow);
+}
+
+.login-info {
+    border-top: 1px solid var(--cyber-border);
+    padding-top: 1rem;
+}
+
+.form-control:focus {
+    border-color: var(--cyber-primary);
+    box-shadow: 0 0 0 0.2rem rgba(125, 249, 255, 0.25);
+}
+
+.input-group .btn-outline-secondary {
+    border-color: var(--cyber-border);
+    color: var(--cyber-text-muted);
+}
+
+.input-group .btn-outline-secondary:hover {
+    background-color: rgba(125, 249, 255, 0.1);
+    border-color: var(--cyber-primary);
+    color: var(--cyber-primary);
+}
+
+@media (max-width: 576px) {
+    .login-card {
+        margin: 1rem;
+        padding: 1.5rem;
+    }
+}
+</style>
+{% endblock %}

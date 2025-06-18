@@ -24,7 +24,6 @@
     <nav class="navbar navbar-expand-lg cyber-nav fixed-top">
         <div class="container-fluid">
             <a class="navbar-brand d-flex align-items-center" href="{{ url_for('index') }}">
-                <img src="{{ url_for('static', filename='images/logo.svg') }}" alt="CyberChat AI" width="40" height="40" class="me-2">
                 <span class="cyber-title">CyberChat AI</span>
             </a>
             
@@ -38,22 +37,29 @@
                 {% if current_user.is_authenticated %}
                     <div class="dropdown">
                         <button class="btn btn-outline-success dropdown-toggle" type="button" data-bs-toggle="dropdown">
-                            {% if current_user.profile_image_url %}
-                                <img src="{{ current_user.profile_image_url }}" alt="Profile" class="rounded-circle me-2" width="24" height="24" style="object-fit: cover;">
-                            {% endif %}
+                            <div class="profile-placeholder-sm me-2 d-inline-flex">
+                                <i class="fas fa-user"></i>
+                            </div>
                             {{ current_user.get_display_name() }}
                         </button>
                         <ul class="dropdown-menu dropdown-menu-end cyber-dropdown">
                             <li><a class="dropdown-item" href="{{ url_for('chat') }}"><i class="fas fa-comments me-2"></i>Chat</a></li>
-                            {% if current_user.is_creator %}
+                            <li><a class="dropdown-item" href="{{ url_for('change_password') }}"><i class="fas fa-key me-2"></i>Change Password</a></li>
+                            {% if current_user.has_permission('manage_system') %}
                                 <li><a class="dropdown-item" href="{{ url_for('settings') }}"><i class="fas fa-cog me-2"></i>Settings</a></li>
                             {% endif %}
+                            {% if current_user.has_permission('manage_users') %}
+                                <li><a class="dropdown-item" href="{{ url_for('users') }}"><i class="fas fa-users me-2"></i>Users</a></li>
+                            {% endif %}
+                            {% if current_user.has_permission('view_logs') %}
+                                <li><a class="dropdown-item" href="{{ url_for('activity_logs') }}"><i class="fas fa-history me-2"></i>Activity Logs</a></li>
+                            {% endif %}
                             <li><hr class="dropdown-divider"></li>
-                            <li><a class="dropdown-item" href="{{ url_for('replit_auth.logout') }}"><i class="fas fa-sign-out-alt me-2"></i>Logout</a></li>
+                            <li><a class="dropdown-item" href="{{ url_for('logout') }}"><i class="fas fa-sign-out-alt me-2"></i>Logout</a></li>
                         </ul>
                     </div>
                 {% else %}
-                    <a href="{{ url_for('replit_auth.login') }}" class="btn btn-primary cyber-btn">
+                    <a href="{{ url_for('login') }}" class="btn btn-primary cyber-btn">
                         <i class="fas fa-sign-in-alt me-2"></i>Sign In
                     </a>
                 {% endif %}
